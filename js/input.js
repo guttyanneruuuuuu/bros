@@ -12,6 +12,7 @@ const Input = {
 
   move: { active:false, id:null, ox:0, oy:0, dx:0, dy:0, mag:0 },
   fire: { active:false, id:null, ox:0, oy:0, dx:0, dy:0, mag:0, justReleased:false },
+  lastAim: null,            // 最後に離した射撃方向
 
   // UI要素
   els: {},
@@ -116,6 +117,8 @@ const Input = {
     const s = this[zone];
     if(zone === 'fire' && s.active && s.mag > this.DEAD_ZONE){
       s.justReleased = true;                     // 発射フラグ（game側で消費）
+      const len = Math.hypot(s.dx, s.dy) || 1;
+      this.lastAim = { x: s.dx/len, y: s.dy/len };  // 発射方向を保存
     }
     s.active = false; s.id = null; s.mag = 0; s.dx = 0; s.dy = 0;
     // UIを元の位置へ戻す

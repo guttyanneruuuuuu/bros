@@ -20,6 +20,7 @@ const Game = {
   camera: { x: 0, y: 0 },
 
   players: [],
+  bullets: [],
   self: null,
 
   lastTime: 0,
@@ -64,6 +65,7 @@ const Game = {
   // プレイヤー生成（暫定：両チーム3人ずつ。Botは後ステップでAI付与）
   spawnPlayers(){
     this.players = [];
+    this.bullets = [];
     const W = this.WORLD;
     // 警察は左陣営、泥棒は右陣営に配置
     const copBase   = { x: 150, y: W.h/2 };
@@ -128,16 +130,85 @@ const Game = {
     if(this.self && this.self.alive){
       const mv = Input.getMove();
       this.self.move(mv.x, mv.y, dt, this.WORLD);
+
+      // エイム中は向きを射撃方向へ
+      const aim = Input.getAim();
+      if(aim){ this.self.facing = Math.atan2(aim.y, aim.x); }
+
+      // 発射要求消費 → 射撃
+      if(Input.consumeFire() && this.self.canFire()){
+        const a = Input.lastAim || { x: Math.cos(this.self.facing), y: Math.sin(this.self.facing) };
+        this.fire(this.self, a.x, a.y);
+      }
     }
 
     // --- 全プレイヤー更新 ---
     for(const p of this.players) p.update(dt);
+
+    // --- 弾更新 & 命中判定 ---
+    this.updateBullets(dt);
 
     // --- カメラ追従 ---
     if(this.self) this.centerCameraOn(this.self.x, this.self.y, false);
 
     // --- 自分HUD更新 ---
     this.updateSelfHud();
+  },
+
+  /* ---------------- 射撃 ---------------- */
+  fire(shooter, dirX, dirY){
+    if(!shooter.canFire()) return;
+    const len = Math.hypot(dirX, dirY) || 1;
+    const nx = dirX/len, ny = dirY/len;
+    const muzzle = shooter.radius + 6;
+    const bx = shooter.x + nx*muzzle;
+    const by = shooter.y + ny*muzzle;
+    this.bullets.push(new Bullet(shooter, bx, by, nx, ny));
+    shooter.onFired();
+    shooter.facing = Math.atan2(ny, nx);
+  },
+
+  updateBullets(dt){
+    for(const b of this.bullets){
+      if(b.dead) continue;
+      b.update(dt, this.WORLD);
+      // プレイヤーへの命中判定（敵チームのみ）
+      for(const p of this.players){
+        if(!p.alive) continue;
+        if(p.team === b.team) continue;          // 味方は貫通
+        if(p === b.owner) continue;
+        if(Utils.circleCircle(b.x, b.y, b.radius, p.x, p.y, p.radius)){
+          this.onHit(b, p);
+          b.dead = true;
+          break;
+        }
+      }
+    }
+    // 死亡弾除去
+    this.bullets = this.bullets.filter(b => !b.dead);
+  },
+
+  onHit(bullet, target){
+    if(bullet.type === 'real'){
+      const wasAlive = target.alive;
+      target.takeDamage(bullet.damage);
+      if(wasAlive && !target.alive){
+        this.feed(`${bullet.owner.name} が ${target.name} を逮捕！`);
+      }
+    } else if(bullet.type === 'stun'){
+      target.applyStun(bullet.stun);
+      this.feed(`${target.name} がスタン！`);
+    }
+  },
+
+  feed(text){
+    const feed = document.getElementById('msgFeed');
+    if(!feed) return;
+    const div = document.createElement('div');
+    div.className = 'feedItem';
+    div.textContent = text;
+    feed.appendChild(div);
+    setTimeout(()=>div.remove(), 2300);
   },
 
   centerCameraOn(wx, wy, instant){
@@ -201,17 +272,44 @@ const Game = {
     this.drawBase(ctx, 150, this.WORLD.h/2, '#ff4757');         // 警察
     this.drawBase(ctx, this.WORLD.w-150, this.WORLD.h/2, '#3498db'); // 泥棒
 
+    // エイム射線（自機がエイム中）
+    this.drawAimLine(ctx);
+
     // プレイヤー描画
     for(const p of this.players){
-      if(!p.alive && p.isHuman === false) {
-        // 死亡中のBotは薄く拠点付近に表示しない（簡略化）。後で復活表示。
-      }
       const s = this.worldToScreen(p.x, p.y);
-      // 画面外カリング
       if(s.x < -50 || s.x > this.view.w+50 || s.y < -50 || s.y > this.view.h+50) continue;
       const alpha = p.alive ? 1 : 0.25;
       p.draw(ctx, s.x, s.y, { alpha });
     }
+
+    // 弾描画
+    for(const b of this.bullets){
+      const s = this.worldToScreen(b.x, b.y);
+      if(s.x < -20 || s.x > this.view.w+20 || s.y < -20 || s.y > this.view.h+20) continue;
+      b.draw(ctx, s.x, s.y);
+    }
+  },
+
+  drawAimLine(ctx){
+    if(!this.self || !this.self.alive) return;
+    const aim = Input.getAim();
+    if(!aim) return;
+    const s = this.worldToScreen(this.self.x, this.self.y);
+    const range = BULLET[this.self.bulletType].range;
+    const ex = s.x + aim.x * range;
+    const ey = s.y + aim.y * range;
+    const col = this.self.bulletType === 'real' ? 'rgba(255,94,87,0.5)' : 'rgba(155,89,255,0.5)';
+
+    ctx.save();
+    ctx.setLineDash([10, 8]);
+    ctx.strokeStyle = col; ctx.lineWidth = 4; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(s.x, s.y); ctx.lineTo(ex, ey); ctx.stroke();
+    ctx.setLineDash([]);
+    // 着弾予測マーカー
+    ctx.fillStyle = col;
+    ctx.beginPath(); ctx.arc(ex, ey, 8, 0, Math.PI*2); ctx.fill();
+    ctx.restore();
   },
 
   drawBase(ctx, wx, wy, color){
