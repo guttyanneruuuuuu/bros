@@ -1,0 +1,140 @@
+:root{
+  --cop: #ff4757;
+  --cop-dark: #c0392b;
+  --robber: #3498db;
+  --robber-dark: #2471a3;
+  --gold: #ffd32a;
+  --bg-dark: #1b2030;
+  --panel: rgba(15,18,30,0.85);
+}
+
+*{ margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+html,body{
+  width:100%; height:100%; overflow:hidden;
+  background:#0c0f18;
+  font-family:"Segoe UI", "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
+  color:#fff; user-select:none; -webkit-user-select:none;
+  touch-action:none;
+}
+
+#gameWrap{ position:fixed; inset:0; width:100%; height:100%; }
+canvas#game{ display:block; width:100%; height:100%; background:#2d4a36; }
+
+.hidden{ display:none !important; }
+
+/* ===================== HUD ===================== */
+#hud{ position:absolute; inset:0; pointer-events:none; }
+
+#topBar{
+  position:absolute; top:0; left:50%; transform:translateX(-50%);
+  display:flex; align-items:center; gap:14px;
+  padding:8px 18px; margin-top:6px;
+  background:var(--panel); border-radius:0 0 16px 16px;
+  font-weight:700; backdrop-filter:blur(4px);
+}
+.teamScore{ display:flex; align-items:center; gap:6px; font-size:16px; }
+.teamScore .val{ font-size:22px; min-width:24px; text-align:center; }
+.teamScore .label{ font-size:12px; opacity:.85; }
+.teamDot{ width:14px; height:14px; border-radius:50%; }
+.teamDot.cop{ background:var(--cop); }
+.teamDot.robber{ background:var(--robber); }
+#timer{
+  font-size:26px; font-weight:800; min-width:54px; text-align:center;
+  background:rgba(0,0,0,.3); border-radius:10px; padding:2px 10px;
+}
+#timer.urgent{ color:var(--gold); animation:pulse .6s infinite; }
+@keyframes pulse{ 50%{ transform:scale(1.12);} }
+
+/* ===================== Joystick ===================== */
+.joystick{ position:absolute; bottom:24px; width:140px; height:140px; pointer-events:auto; }
+#moveStick{ left:18px; }
+#fireStick{ right:18px; }
+.stickBase{
+  position:absolute; inset:14px; border-radius:50%;
+  background:rgba(255,255,255,.12); border:3px solid rgba(255,255,255,.25);
+}
+.stickBase.fire{ background:rgba(255,71,87,.14); border-color:rgba(255,71,87,.4); }
+.stickKnob{
+  position:absolute; left:50%; top:50%; width:56px; height:56px;
+  margin:-28px 0 0 -28px; border-radius:50%;
+  background:rgba(255,255,255,.55); box-shadow:0 2px 8px rgba(0,0,0,.4);
+  transition:opacity .15s;
+}
+.stickKnob.fire{ background:rgba(255,71,87,.75); }
+
+/* ===================== Self Status ===================== */
+#selfStatus{
+  position:absolute; bottom:8px; left:50%; transform:translateX(-50%);
+  text-align:center; width:160px;
+}
+#selfHpBar{
+  width:100%; height:14px; border-radius:8px; overflow:hidden;
+  background:rgba(0,0,0,.5); border:2px solid rgba(255,255,255,.3);
+}
+#selfHpFill{ height:100%; width:100%; background:linear-gradient(90deg,#2ecc71,#27ae60); transition:width .15s; }
+#selfState{ font-size:13px; font-weight:700; margin-top:4px; min-height:16px; color:var(--gold); }
+
+/* ===================== Message Feed ===================== */
+#msgFeed{
+  position:absolute; top:64px; left:50%; transform:translateX(-50%);
+  display:flex; flex-direction:column; align-items:center; gap:4px;
+}
+.feedItem{
+  background:rgba(0,0,0,.55); padding:4px 12px; border-radius:12px;
+  font-size:13px; font-weight:600; animation:fadeUp 2.2s forwards;
+}
+@keyframes fadeUp{ 0%{opacity:0;transform:translateY(8px);} 12%{opacity:1;transform:none;} 80%{opacity:1;} 100%{opacity:0;} }
+
+/* ===================== Menu ===================== */
+#menu{
+  position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+  background:radial-gradient(circle at 50% 30%, #2a3350, #0c0f18 70%);
+}
+.menuInner{ text-align:center; width:90%; max-width:420px; }
+.logo{
+  font-size:72px; font-weight:900; letter-spacing:4px;
+  background:linear-gradient(180deg,#ffe259,#ffa751);
+  -webkit-background-clip:text; background-clip:text; color:transparent;
+  text-shadow:0 6px 0 rgba(0,0,0,.25); margin-bottom:4px;
+}
+.tagline{ font-size:15px; opacity:.8; margin-bottom:34px; }
+.menuButtons{ display:flex; flex-direction:column; gap:14px; }
+
+.btn{
+  pointer-events:auto; cursor:pointer; border:none; border-radius:14px;
+  padding:16px; font-size:18px; font-weight:800; color:#fff;
+  background:#3d4a6b; box-shadow:0 4px 0 #2a3350; transition:transform .06s, box-shadow .06s;
+}
+.btn:active{ transform:translateY(3px); box-shadow:0 1px 0 #2a3350; }
+.btn.primary{ background:linear-gradient(180deg,#ffb347,#ff8c00); box-shadow:0 4px 0 #c0660a; color:#3a2400; }
+.btn.ghost{ background:transparent; box-shadow:none; border:2px solid rgba(255,255,255,.3); font-size:15px; }
+.btn.small{ padding:10px; font-size:14px; }
+
+#teamPick{ margin-top:10px; }
+.pickLabel{ font-size:16px; margin-bottom:14px; opacity:.9; }
+.teamPickBtns{ display:flex; gap:12px; margin-bottom:14px; }
+.teamBtn{ flex:1; line-height:1.4; }
+.teamBtn small{ font-weight:600; opacity:.85; font-size:12px; }
+.teamBtn.cop{ background:linear-gradient(180deg,#ff6b6b,#ee4040); box-shadow:0 4px 0 var(--cop-dark); }
+.teamBtn.robber{ background:linear-gradient(180deg,#54a0ff,#2e86de); box-shadow:0 4px 0 var(--robber-dark); }
+
+/* ===================== Overlay ===================== */
+.overlay{
+  position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+  background:rgba(0,0,0,.6); z-index:20;
+}
+.overlayCard{
+  background:var(--bg-dark); border-radius:18px; padding:26px;
+  width:88%; max-width:380px; text-align:center; border:2px solid rgba(255,255,255,.1);
+}
+.overlayCard h2{ font-size:30px; margin-bottom:14px; }
+.overlayCard ul{ text-align:left; margin:0 0 18px; padding-left:18px; line-height:1.9; font-size:14px; }
+.overlayCard p{ margin-bottom:18px; opacity:.85; }
+#resultTitle.win{ color:var(--gold); }
+#resultTitle.lose{ color:#bbb; }
+
+/* landscape tweaks */
+@media (orientation:landscape){
+  .logo{ font-size:60px; }
+  .joystick{ width:130px; height:130px; }
+}

@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<title>BROS - 3vs3 ケイドロ・シューティング</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- ================= ゲームキャンバス ================= -->
+  <div id="gameWrap">
+    <canvas id="game"></canvas>
+
+    <!-- ================= HUD（戦闘中UI） ================= -->
+    <div id="hud" class="hidden">
+      <!-- 上部: スコア & タイマー -->
+      <div id="topBar">
+        <div class="teamScore" id="scoreCop">
+          <span class="teamDot cop"></span>
+          <span class="label">警察</span>
+          <span class="val" id="copScoreVal">0</span>
+        </div>
+        <div id="timer">60</div>
+        <div class="teamScore" id="scoreRobber">
+          <span class="val" id="robberScoreVal">0</span>
+          <span class="label">泥棒</span>
+          <span class="teamDot robber"></span>
+        </div>
+      </div>
+
+      <!-- 左下: 移動ジョイスティック -->
+      <div id="moveStick" class="joystick">
+        <div class="stickBase"></div>
+        <div class="stickKnob"></div>
+      </div>
+
+      <!-- 右下: 射撃ジョイスティック -->
+      <div id="fireStick" class="joystick">
+        <div class="stickBase fire"></div>
+        <div class="stickKnob fire"></div>
+      </div>
+
+      <!-- 自分のステータス（下中央） -->
+      <div id="selfStatus">
+        <div id="selfHpBar"><div id="selfHpFill"></div></div>
+        <div id="selfState"></div>
+      </div>
+
+      <!-- キルログ / メッセージ -->
+      <div id="msgFeed"></div>
+    </div>
+
+    <!-- ================= メニュー画面 ================= -->
+    <div id="menu">
+      <div class="menuInner">
+        <h1 class="logo">BROS</h1>
+        <p class="tagline">3 vs 3 ケイドロ・シューティング</p>
+
+        <div class="menuButtons">
+          <button class="btn primary" data-mode="bot">Bot対戦（ソロ）</button>
+          <button class="btn" data-mode="friend">友達対戦（ルーム）</button>
+          <button class="btn ghost" id="howtoBtn">遊び方</button>
+        </div>
+
+        <div id="teamPick" class="hidden">
+          <p class="pickLabel">チームを選択</p>
+          <div class="teamPickBtns">
+            <button class="btn teamBtn cop" data-team="cop">警察になる<br><small>HP高 / 実弾</small></button>
+            <button class="btn teamBtn robber" data-team="robber">泥棒になる<br><small>俊足 / スタンガン</small></button>
+          </div>
+          <button class="btn ghost small" id="backFromTeam">戻る</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= 遊び方モーダル ================= -->
+    <div id="howto" class="overlay hidden">
+      <div class="overlayCard">
+        <h2>遊び方</h2>
+        <ul>
+          <li><b>左スティック</b>：移動（360°）</li>
+          <li><b>右スティック</b>：エイム＆射撃。離すと発射</li>
+          <li><b>泥棒</b>：黄色いお宝を集め、制限時間まで生き残れ</li>
+          <li><b>警察</b>：泥棒を撃って逮捕しお宝を奪い返せ</li>
+          <li><b>茂み</b>：中に隠れると敵から見えない</li>
+        </ul>
+        <button class="btn primary" id="closeHowto">閉じる</button>
+      </div>
+    </div>
+
+    <!-- ================= リザルト画面 ================= -->
+    <div id="result" class="overlay hidden">
+      <div class="overlayCard">
+        <h2 id="resultTitle">勝利！</h2>
+        <p id="resultSub"></p>
+        <button class="btn primary" id="resultBack">メニューへ</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= スクリプト ================= -->
+  <script src="js/utils.js"></script>
+  <script src="js/game.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
