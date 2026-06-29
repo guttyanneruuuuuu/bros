@@ -9,6 +9,10 @@ const Game = {
   WORLD: { w: 1600, h: 1600 },
   TEAM_SIZE: 3,
   MATCH_TIME: 60,
+  GEM_TARGET: 10,            // 泥棒がこの数を確保し続けてカウントダウン勝利 or 時間切れ時に最多で勝利
+  GEM_SPAWN_INTERVAL: 1.6,   // お宝出現間隔(秒)
+  GEM_MAX_FIELD: 8,          // フィールド上の同時最大数
+  LOCK_TIME: 8,              // 泥棒が目標数を保持し続けると勝利するまでの秒数
 
   // --- 状態 ---
   state: 'menu',
@@ -21,7 +25,13 @@ const Game = {
 
   players: [],
   bullets: [],
+  gems: [],                  // フィールド上のお宝
   self: null,
+
+  gemSpawnTimer: 0,
+  robberHeld: 0,             // 泥棒チームが現在所持しているお宝合計
+  lockCountdown: 0,          // 泥棒勝利カウントダウン残り（0=未発動）
+  winner: null,
 
   lastTime: 0,
   running: false,
@@ -67,6 +77,11 @@ const Game = {
     GameMap.build(this.WORLD.w, this.WORLD.h);
     this.players = [];
     this.bullets = [];
+    this.gems = [];
+    this.gemSpawnTimer = 0.5;
+    this.robberHeld = 0;
+    this.lockCountdown = 0;
+    this.winner = null;
     const W = this.WORLD;
     // 警察は左陣営、泥棒は右陣営に配置
     const copBase   = { x: 150, y: W.h/2 };
@@ -155,11 +170,109 @@ const Game = {
     // --- 弾更新 & 命中判定 ---
     this.updateBullets(dt);
 
+    // --- お宝の出現・回収・更新 ---
+    this.updateGems(dt);
+
+    // --- スコア集計 & 勝利条件 ---
+    this.evaluateScore(dt);
+
     // --- カメラ追従 ---
     if(this.self) this.centerCameraOn(this.self.x, this.self.y, false);
 
-    // --- 自分HUD更新 ---
+    // --- HUD更新 ---
+    this.updateScoreHud();
     this.updateSelfHud();
+  },
+
+  /* ---------------- お宝 ---------------- */
+  updateGems(dt){
+    // 出現
+    this.gemSpawnTimer -= dt;
+    if(this.gemSpawnTimer <= 0 && this.gems.length < this.GEM_MAX_FIELD){
+      this.gemSpawnTimer = this.GEM_SPAWN_INTERVAL;
+      this.spawnGem();
+    }
+    // 更新 & 回収（泥棒のみ）
+    for(const g of this.gems){
+      if(g.collected) continue;
+      g.update(dt, this.WORLD);
+      for(const p of this.players){
+        if(!p.alive || p.team !== 'robber') continue;
+        if(Utils.circleCircle(g.x, g.y, g.radius+4, p.x, p.y, p.radius)){
+          g.collected = true;
+          p.gems++;
+          if(p.isHuman) this.feed('お宝を獲得！ ◆'+p.gems);
+          break;
+        }
+      }
+    }
+    this.gems = this.gems.filter(g => !g.collected);
+  },
+
+  spawnGem(){
+    // マップ中央付近のランダム位置（壁・茂みを避ける）
+    const cx = this.WORLD.w/2, cy = this.WORLD.h/2;
+    for(let tries=0; tries<20; tries++){
+      const x = cx + Utils.rand(-360, 360);
+      const y = cy + Utils.rand(-420, 420);
+      if(GameMap.bulletHitsWall(x, y, 14)) continue;
+      const g = new Gem(x, y);
+      this.gems.push(g);
+      return;
+    }
+  },
+
+  // 逮捕された泥棒のお宝を地面に散らす
+  dropGems(player){
+    const n = player.gems;
+    player.gems = 0;
+    for(let i=0; i<n; i++){
+      const g = new Gem(player.x, player.y);
+      g.scatter();
+      this.gems.push(g);
+    }
+  },
+
+  /* ---------------- スコア & 勝利 ---------------- */
+  evaluateScore(dt){
+    // 泥棒所持合計
+    let held = 0;
+    for(const p of this.players){ if(p.team === 'robber') held += p.gems; }
+    this.robberHeld = held;
+
+    // 泥棒が目標数を保持し続けると勝利カウントダウン
+    if(held >= this.GEM_TARGET){
+      if(this.lockCountdown <= 0) this.lockCountdown = this.LOCK_TIME;
+      this.lockCountdown -= dt;
+      if(this.lockCountdown <= 0){ this.finish('robber', '泥棒がお宝を確保しきった！'); return; }
+    } else {
+      this.lockCountdown = 0;
+    }
+
+    // 時間切れ判定
+    if(this.timeLeft <= 0){
+      // 泥棒が目標の半分以上集めていれば泥棒勝利、そうでなければ警察勝利
+      if(held >= Math.ceil(this.GEM_TARGET/2)) this.finish('robber', '時間切れ：泥棒が逃げ切った！');
+      else this.finish('cop', '時間切れ：警察が阻止した！');
+    }
+  },
+
+  finish(winnerTeam, reason){
+    if(this.state !== 'playing') return;
+    this.winner = winnerTeam;
+    this.state = 'result';
+    this.showResult(winnerTeam, reason);
+  },
+
+  showResult(winnerTeam, reason){
+    const win = winnerTeam === this.playerTeam;
+    const title = document.getElementById('resultTitle');
+    const sub = document.getElementById('resultSub');
+    title.textContent = win ? '勝利！' : '敗北…';
+    title.className = win ? 'win' : 'lose';
+    const teamName = winnerTeam === 'cop' ? '警察チーム' : '泥棒チーム';
+    sub.textContent = `${teamName}の勝利 — ${reason}`;
+    document.getElementById('result').classList.remove('hidden');
   },
 
   /* ---------------- 射撃 ---------------- */
@@ -203,6 +316,7 @@ const Game = {
       target.takeDamage(bullet.damage);
       if(wasAlive && !target.alive){
         this.feed(`${bullet.owner.name} が ${target.name} を逮捕！`);
+        if(target.team === 'robber' && target.gems > 0) this.dropGems(target);
       }
     } else if(bullet.type === 'stun'){
       target.applyStun(bullet.stun);
@@ -231,6 +345,21 @@ const Game = {
     else {
       this.camera.x = Utils.lerp(this.camera.x, cx, 0.15);
       this.camera.y = Utils.lerp(this.camera.y, cy, 0.15);
+    }
+  },
+
+  updateScoreHud(){
+    const robEl = document.getElementById('robberScoreVal');
+    const copEl = document.getElementById('copScoreVal');
+    if(robEl) robEl.textContent = this.robberHeld;
+    // 警察スコア = 目標数 - 泥棒所持（残り阻止数の目安）
+    if(copEl) copEl.textContent = Math.max(0, this.GEM_TARGET - this.robberHeld);
+
+    // 泥棒勝利カウントダウン表示
+    const tEl = document.getElementById('timer');
+    if(tEl && this.lockCountdown > 0){
+      tEl.textContent = Math.ceil(this.lockCountdown);
+      tEl.classList.add('urgent');
     }
   },
 
@@ -275,6 +404,13 @@ const Game = {
 
     // 壁（プレイヤーより下層に描画）
     GameMap.drawWalls(ctx, cam);
+
+    // お宝
+    for(const g of this.gems){
+      const s = this.worldToScreen(g.x, g.y);
+      if(s.x < -30 || s.x > view.w+30 || s.y < -30 || s.y > view.h+30) continue;
+      g.draw(ctx, s.x, s.y);
+    }
 
     // エイム射線
     this.drawAimLine(ctx);

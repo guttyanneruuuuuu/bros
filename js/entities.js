@@ -206,3 +206,62 @@ class Bullet {
     ctx.restore();
   }
 }
+
+/* ============================================================
+ * Gem : お宝（黄色い円）
+ *   - 泥棒が触れると拾える
+ *   - 逮捕で地面に落ちたものは少し弾けて散らばる
+ * ============================================================ */
+class Gem {
+  constructor(x, y){
+    this.x = x; this.y = y;
+    this.radius = 11;
+    this.bob = Math.random()*Math.PI*2;     // 浮遊アニメ位相
+    this.collected = false;
+    this.spawnAnim = 0;                     // 出現演出
+    // 落下時の散らばり速度
+    this.vx = 0; this.vy = 0; this.settleTimer = 0;
+  }
+
+  scatter(){
+    const a = Math.random()*Math.PI*2;
+    const sp = Utils.rand(60, 140);
+    this.vx = Math.cos(a)*sp; this.vy = Math.sin(a)*sp;
+    this.settleTimer = 0.4;
+  }
+
+  update(dt, world){
+    this.bob += dt*3;
+    if(this.spawnAnim < 1) this.spawnAnim = Math.min(1, this.spawnAnim + dt*3);
+    if(this.settleTimer > 0){
+      this.settleTimer -= dt;
+      this.x += this.vx*dt; this.y += this.vy*dt;
+      this.vx *= 0.86; this.vy *= 0.86;
+      this.x = Utils.clamp(this.x, 12, world.w-12);
+      this.y = Utils.clamp(this.y, 12, world.h-12);
+      if(typeof GameMap !== 'undefined'){
+        const r = GameMap.resolveCircle(this.x, this.y, this.radius);
+        this.x = r.x; this.y = r.y;
+      }
+    }
+  }
+
+  draw(ctx, sx, sy){
+    const s = this.spawnAnim;
+    const off = Math.sin(this.bob)*3;
+    ctx.save();
+    ctx.translate(sx, sy - 4 + off);
+    ctx.scale(s, s);
+    ctx.shadowColor = '#ffe27a'; ctx.shadowBlur = 12;
+    // ダイヤ型
+    ctx.fillStyle = '#ffd32a'; ctx.strokeStyle = '#c79100'; ctx.lineWidth = 2;
+    const r = this.radius;
+    ctx.beginPath();
+    ctx.moveTo(0, -r); ctx.lineTo(r*0.8, 0); ctx.lineTo(0, r); ctx.lineTo(-r*0.8, 0);
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+    // ハイライト
+    ctx.fillStyle = 'rgba(255,255,255,0.7)';
+    ctx.beginPath(); ctx.moveTo(0,-r); ctx.lineTo(r*0.4,-r*0.2); ctx.lineTo(0,0); ctx.closePath(); ctx.fill();
+    ctx.restore();
+  }
+}
