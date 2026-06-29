@@ -164,6 +164,11 @@ const Game = {
       }
     }
 
+    // --- Bot AI 思考・行動 ---
+    for(const p of this.players){
+      if(p.isBot) AI.update(p, dt, this);
+    }
+
     // --- 全プレイヤー更新 ---
     for(const p of this.players) p.update(dt);
 
