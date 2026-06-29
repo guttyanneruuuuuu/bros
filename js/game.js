@@ -64,6 +64,7 @@ const Game = {
 
   // プレイヤー生成（暫定：両チーム3人ずつ。Botは後ステップでAI付与）
   spawnPlayers(){
+    GameMap.build(this.WORLD.w, this.WORLD.h);
     this.players = [];
     this.bullets = [];
     const W = this.WORLD;
@@ -83,6 +84,12 @@ const Game = {
         name:'ROB'+(i+1)
       });
       this.players.push(cop, rob);
+    }
+
+    // スポーンが壁にめり込まないよう補正
+    for(const p of this.players){
+      const r = GameMap.resolveCircle(p.x, p.y, p.radius);
+      p.x = r.x; p.y = r.y; p.spawnX = r.x; p.spawnY = r.y;
     }
 
     // 自分のキャラを選んだチームの1人目に割り当て
@@ -172,6 +179,8 @@ const Game = {
     for(const b of this.bullets){
       if(b.dead) continue;
       b.update(dt, this.WORLD);
+      // 壁衝突で消滅
+      if(GameMap.bulletHitsWall(b.x, b.y, b.radius)){ b.dead = true; continue; }
       // プレイヤーへの命中判定（敵チームのみ）
       for(const p of this.players){
         if(!p.alive) continue;
@@ -250,18 +259,10 @@ const Game = {
   },
 
   renderWorld(ctx){
-    // 地面
-    ctx.fillStyle = '#2d4a36';
-    ctx.fillRect(0, 0, this.view.w, this.view.h);
+    const cam = this.camera, view = this.view;
 
-    // グリッド
-    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
-    ctx.lineWidth = 1;
-    const grid = 64;
-    const ox = -(this.camera.x % grid);
-    const oy = -(this.camera.y % grid);
-    for(let x = ox; x < this.view.w; x += grid){ ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,this.view.h); ctx.stroke(); }
-    for(let y = oy; y < this.view.h; y += grid){ ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(this.view.w,y); ctx.stroke(); }
+    // 地面
+    GameMap.drawGround(ctx, cam, view);
 
     // ワールド境界
     const o = this.worldToScreen(0, 0);
@@ -269,26 +270,51 @@ const Game = {
     ctx.strokeRect(o.x, o.y, this.WORLD.w, this.WORLD.h);
 
     // 陣地マーカー
-    this.drawBase(ctx, 150, this.WORLD.h/2, '#ff4757');         // 警察
+    this.drawBase(ctx, 150, this.WORLD.h/2, '#ff4757');             // 警察
     this.drawBase(ctx, this.WORLD.w-150, this.WORLD.h/2, '#3498db'); // 泥棒
 
-    // エイム射線（自機がエイム中）
+    // 壁（プレイヤーより下層に描画）
+    GameMap.drawWalls(ctx, cam);
+
+    // エイム射線
     this.drawAimLine(ctx);
 
-    // プレイヤー描画
+    // プレイヤー描画（可視性判定込み）
     for(const p of this.players){
       const s = this.worldToScreen(p.x, p.y);
-      if(s.x < -50 || s.x > this.view.w+50 || s.y < -50 || s.y > this.view.h+50) continue;
-      const alpha = p.alive ? 1 : 0.25;
-      p.draw(ctx, s.x, s.y, { alpha });
+      if(s.x < -60 || s.x > view.w+60 || s.y < -60 || s.y > view.h+60) continue;
+      const vis = this.visibilityOf(p);
+      if(vis <= 0) continue;                 // 完全不可視
+      p.draw(ctx, s.x, s.y, { alpha: (p.alive ? 1 : 0.25) * vis });
     }
 
     // 弾描画
     for(const b of this.bullets){
       const s = this.worldToScreen(b.x, b.y);
-      if(s.x < -20 || s.x > this.view.w+20 || s.y < -20 || s.y > this.view.h+20) continue;
+      if(s.x < -20 || s.x > view.w+20 || s.y < -20 || s.y > view.h+20) continue;
       b.draw(ctx, s.x, s.y);
     }
+
+    // 茂み（最前面：中のキャラを隠す）
+    GameMap.drawBushes(ctx, cam);
+  },
+
+  // プレイヤーpの可視度を返す（0=不可視, 0.4=茂み内自軍含む半透明, 1=完全表示）
+  visibilityOf(p){
+    // 自分・観戦対象は常に表示
+    if(p === this.self) return 1;
+    const inBush = GameMap.inBush(p.x, p.y);
+    if(!inBush) return 1;                        // 茂みの外は見える
+
+    // 茂みの中：味方なら半透明で見える
+    if(this.self && p.team === this.self.team) return 0.5;
+
+    // 敵が茂み内：自分も同じ茂み付近(近距離)なら薄っすら見える
+    if(this.self){
+      const d = Utils.dist(p.x, p.y, this.self.x, this.self.y);
+      if(d < 90) return 0.35;
+    }
+    return 0;                                    // 完全に隠れる
   },
 
   drawAimLine(ctx){

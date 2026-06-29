@@ -58,12 +58,21 @@ class Player {
   move(vx, vy, dt, world){
     if(!this.alive || this.stunned) return;
     if(vx === 0 && vy === 0) return;
-    const nx = this.x + vx * this.speed * dt;
-    const ny = this.y + vy * this.speed * dt;
-    // 壁衝突は後ステップでマップ実装時に拡張。今はワールド境界のみ
-    this.x = Utils.clamp(nx, this.radius, world.w - this.radius);
-    this.y = Utils.clamp(ny, this.radius, world.h - this.radius);
-    if(vx !== 0 || vy !== 0) this.facing = Math.atan2(vy, vx);
+    let nx = this.x + vx * this.speed * dt;
+    let ny = this.y + vy * this.speed * dt;
+    // ワールド境界
+    nx = Utils.clamp(nx, this.radius, world.w - this.radius);
+    ny = Utils.clamp(ny, this.radius, world.h - this.radius);
+    // 壁衝突解決（map.js）
+    if(typeof GameMap !== 'undefined' && GameMap.resolveCircle){
+      const res = GameMap.resolveCircle(nx, ny, this.radius);
+      nx = Utils.clamp(res.x, this.radius, world.w - this.radius);
+      ny = Utils.clamp(res.y, this.radius, world.h - this.radius);
+    }
+    this.x = nx; this.y = ny;
+    // 移動方向で向き更新（エイム中はgame側で上書き）
+    this.facing = Math.atan2(vy, vx);
+    this.moving = true;
   }
 
   update(dt){

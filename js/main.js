@@ -50,5 +50,11 @@
   window.addEventListener('load', () => {
     Game.init();
     setupMenu();
+    // デバッグ用: ?auto=cop|robber で即マッチ開始
+    const params = new URLSearchParams(location.search);
+    const auto = params.get('auto');
+    if(auto === 'cop' || auto === 'robber'){
+      Game.startMatch('bot', auto);
+    }
   });
 })();
